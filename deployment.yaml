@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: calculator
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: calculator
@@ -14,17 +14,15 @@ spec:
     spec:
       containers:
       - name: calculator
-        image: my-node-app:latest  # Pre-built image
-        imagePullPolicy: Never     # For local development
+        image: calculator-app:v2
         ports:
         - containerPort: 3000
-        livenessProbe:            # Healthcheck replacement
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "128Mi"
+        livenessProbe:
           httpGet:
-            path: /add?num1=1&num2=1
+            path: /
             port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
-      restartPolicy: Always       # Kubernetes equivalent
-      
+          initialDelaySeconds: 15

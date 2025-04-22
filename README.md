@@ -4,49 +4,45 @@
 ![Node.js](https://img.shields.io/badge/Runtime-Node.js-339933?logo=node.js)
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker)
 
-A cloud-native calculator microservice with automated scaling, health monitoring, and zero-downtime deployment capabilities.
+A cloud-native calculator API with full Kubernetes orchestration supporting 6 mathematical operations.
 
 ## 🌟 Key Features
-- **Horizontal Scaling** - Automatically scale calculator pods based on demand
-- **Self-Healing** - Automatic pod restarts on failures
-- **Service Discovery** - Built-in DNS resolution for microservices
-- **Rolling Updates** - Seamless version upgrades with zero downtime
-- **Health Monitoring** - Liveness and readiness probes
-
-
+- **Zero-Downtime Deployments** - Rolling updates with `maxUnavailable: 0`
+- **Self-Healing** - Automatic pod restarts via liveness probes
+- **Logging** - Winston logging to `logs/` directory
+- **Input Validation** - NaN and division-by-zero protection
+- **Resource Efficiency** - 128MB memory limit per pod
 
 ## 🚀 Deployment Quickstart
 
 ### Prerequisites
 ```bash
-# Verify tools
 minikube version && kubectl version && docker --version
 ```
 
-### 1. Initialize Cluster
+### 1. Initialize Minikube
 ```bash
 minikube start --driver=docker --cpus=2 --memory=4g
-minikube addons enable metrics-server  # For HPA
+minikube docker-env | Invoke-Expression  # PowerShell
 ```
 
 ### 2. Build & Deploy
 ```bash
-# Set up Docker environment
-eval $(minikube docker-env)
+# Build image
+docker build -t calculator-app:v2 .
 
-# Build optimized image
-docker build -t calculator:v1.0.0 .
-
-# Deploy with Kubernetes
-kubectl apply -f k8s/
+# Deploy
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
 ```
 
-### 3. Access the Service
-```bash
+### 3. Access Service
+```powershell
 minikube service calculator-service --url
-# Or port-forward for development:
+# Alternative:
 kubectl port-forward svc/calculator-service 8080:80
 ```
+Access: `http://localhost:8080/add?num1=5&num2=3`
 
 ## 📂 Configuration Files
 
@@ -57,10 +53,14 @@ kind: Deployment
 metadata:
   name: calculator
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: calculator
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -68,19 +68,18 @@ spec:
     spec:
       containers:
       - name: calculator
-        image: my-node-app:latest  # Pre-built image
-        imagePullPolicy: Never     # For local development
+        image: calculator-app:v2
         ports:
         - containerPort: 3000
-        livenessProbe:            # Healthcheck replacement
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "128Mi"
+        livenessProbe:
           httpGet:
-            path: /add?num1=1&num2=1
+            path: /
             port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
-      restartPolicy: Always       # Kubernetes equivalent
+          initialDelaySeconds: 15
 ```
 
 ### `service.yaml`
@@ -88,55 +87,52 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: node-app-service
+  name: calculator-service
 spec:
   type: NodePort
-  selector:
-    app: calculator   
   ports:
-    - port: 80
-      targetPort: 3000
-      nodePort: 31000
+  - port: 80
+    targetPort: 3000
+    nodePort: 31000
+  selector:
+    app: calculator
 ```
 
 ## 🛠️ Operational Commands
 
 | Task | Command |
 |------|---------|
-| View pods | `kubectl get pods -o wide` |
-| Check logs | `kubectl logs -f <pod-name> --tail=50` |
-| Monitor resources | `kubectl top pods` |
-| Scale deployment | `kubectl scale deploy/calculator --replicas=5` |
-| Service details | `kubectl describe svc calculator-service` |
+| Check pods | `kubectl get pods -w` |
+| View logs | `kubectl logs -f <pod-name>` |
+| Debug service | `kubectl describe svc calculator-service` |
+| Scale pods | `kubectl scale deploy/calculator --replicas=3` |
+| Delete all | `kubectl delete -f deployment.yaml -f service.yaml` |
 
-## 📈 Performance Metrics
-```bash
-watch -n 2 'kubectl get hpa,deploy,pods,svc'
-```
-
-## 🧪 Testing Endpoints
-
+## 🧪 Available Endpoints
 ```http
-GET /add?num1=23&num2=19
-GET /health
-GET /metrics
+GET /add?num1={x}&num2={y}
+GET /subtract?num1={x}&num2={y} 
+GET /multiply?num1={x}&num2={y}
+GET /divide?num1={x}&num2={y}
+GET /sqrt?num={x}
+GET /modulo?num1={x}&num2={y}
 ```
 
-## 🌐 Access Patterns
+## 📊 Architecture
 ```mermaid
-sequenceDiagram
-    User->>+Service: HTTP Request
-    Service->>+Pod: Route Traffic
-    Pod->>+Calculator: Process Request
-    Calculator-->>-Pod: Response
-    Pod-->>-Service: Return Data
-    Service-->>-User: Display Result
+graph TD
+    User -->|HTTP| Service
+    Service -->|Load Balance| Pod1
+    Service -->|Load Balance| Pod2
+    Pod1 -->|Logs| Volume
+    Pod2 -->|Logs| Volume
 ```
 
 ## 📚 Documentation
-- [Kubernetes Concepts](https://kubernetes.io/docs/concepts/)
-- [Minikube Guide](https://minikube.sigs.k8s.io/docs/)
-- [Express Best Practices](https://expressjs.com/en/advanced/best-practice-performance.html)
+- [Kubernetes Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+- [Express Error Handling](https://expressjs.com/en/guide/error-handling.html)
+- [Winston Logging](https://github.com/winstonjs/winston)
 
 ## 👨‍💻 Author
-**Muhammad Nouman Qaiser**
+**Muhammad Nouman Qaiser**  
+[GitHub Repository](https://github.com/M-NOUMAN-QAISER/sit737-2025-prac6p)
